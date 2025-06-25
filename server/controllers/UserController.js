@@ -4,12 +4,26 @@ import transactionModel from "../models/transactionModel.js"
 import razorpay from 'razorpay';
 import stripe from "stripe";
 
-// Gateway Initialize
-const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
-const razorpayInstance = new razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
+// Gateway Initialize - Only if API keys are provided
+let stripeInstance = null;
+let razorpayInstance = null;
+
+// Initialize Stripe only if API key is provided
+if (process.env.STRIPE_SECRET_KEY) {
+    stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+    console.warn('Warning: STRIPE_SECRET_KEY not provided. Stripe functionality will be disabled.');
+}
+
+// Initialize Razorpay only if API keys are provided
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    razorpayInstance = new razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+} else {
+    console.warn('Warning: Razorpay credentials not provided. Razorpay functionality will be disabled.');
+}
 
 // API Controller Function to Manage Clerk User with database
 const clerkWebhooks = async (req, res) => {
@@ -93,6 +107,10 @@ const userCredits = async (req, res) => {
 // Payment API to add credits ( RazorPay )
 const paymentRazorpay = async (req, res) => {
     try {
+        // Check if Razorpay is initialized
+        if (!razorpayInstance) {
+            return res.json({ success: false, message: 'Payment service not available. Razorpay not configured.' })
+        }
 
         const { clerkId, planId } = req.body
 
@@ -168,6 +186,10 @@ const paymentRazorpay = async (req, res) => {
 // API Controller function to verify razorpay payment
 const verifyRazorpay = async (req, res) => {
     try {
+        // Check if Razorpay is initialized
+        if (!razorpayInstance) {
+            return res.json({ success: false, message: 'Payment service not available. Razorpay not configured.' })
+        }
 
         const { razorpay_order_id } = req.body;
 
@@ -204,6 +226,10 @@ const verifyRazorpay = async (req, res) => {
 // Payment API to add credits ( Stripe )
 const paymentStripe = async (req, res) => {
     try {
+        // Check if Stripe is initialized
+        if (!stripeInstance) {
+            return res.json({ success: false, message: 'Payment service not available. Stripe not configured.' })
+        }
 
         const { clerkId, planId } = req.body
         const { origin } = req.headers
@@ -255,7 +281,7 @@ const paymentStripe = async (req, res) => {
         // Saving Transaction Data to Database
         const newTransaction = await transactionModel.create(transactionData)
 
-        const currency = process.env.CURRENCY.toLocaleLowerCase()
+        const currency = (process.env.CURRENCY || 'USD').toLowerCase()
 
         // Creating line items to for Stripe
         const line_items = [{
@@ -287,7 +313,7 @@ const paymentStripe = async (req, res) => {
 // API Controller function to verify stripe payment
 const verifyStripe = async (req, res) => {
     try {
-
+        // Note: Stripe verification doesn't require stripeInstance, but we keep the check for consistency
         const { transactionId, success } = req.body
 
         // Checking for payment status
