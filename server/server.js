@@ -33,6 +33,11 @@ app.use((req, res, next) => {
 app.use('/api/user',userRouter)
 app.use('/api/image',imageRouter)
 
+app.get('/ping', (req, res) => {
+  res.status(200).send('OK');
+});
+
+
 app.get('/', (req,res) => res.send("API Working"))
 
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
